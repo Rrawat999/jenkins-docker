@@ -1,5 +1,5 @@
 
-FROM ubuntu
+FROM ubuntu:trusty
 
 USER root
 
