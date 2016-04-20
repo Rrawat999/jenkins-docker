@@ -9,17 +9,30 @@ RUN apt-get -y install software-properties-common
 RUN apt-get install -y wget git curl zip 
 RUN apt-add-repository ppa:george-edison55/cmake-3.x
 RUN wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key | apt-key add -
-RUN add-apt-repository "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty main"
+RUN add-apt-repository "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.7 main"
 RUN add-apt-repository -y ppa:ethereum/ethereum-qt
 RUN add-apt-repository -y ppa:ethereum/ethereum
 RUN add-apt-repository -y ppa:ethereum/ethereum-dev
 RUN apt-get -y update
 RUN apt-get -y upgrade
-RUN apt-get -y install build-essential git cmake libboost-all-dev libgmp-dev libleveldb-dev libminiupnpc-dev libreadline-dev libncurses5-dev libcurl4-openssl-dev libcryptopp-dev libjson-rpc-cpp-dev libmicrohttpd-dev libjsoncpp-dev libargtable2-dev llvm-3.8-dev libedit-dev mesa-common-dev ocl-icd-libopencl1 opencl-headers libgoogle-perftools-dev qtbase5-dev qt5-default qtdeclarative5-dev libqt5webkit5-dev libqt5webengine5-dev ocl-icd-dev libv8-dev
+RUN apt-get -y install build-essential git cmake libboost-all-dev libgmp-dev libleveldb-dev libminiupnpc-dev libreadline-dev libncurses5-dev libcurl4-openssl-dev libcryptopp-dev libjson-rpc-cpp-dev libmicrohttpd-dev libjsoncpp-dev libargtable2-dev llvm-3.7-dev libedit-dev mesa-common-dev ocl-icd-libopencl1 opencl-headers libgoogle-perftools-dev qtbase5-dev qt5-default qtdeclarative5-dev libqt5webkit5-dev libqt5webengine5-dev ocl-icd-dev libv8-dev
 RUN apt-get -y install openjdk-7-jdk
 
 
 RUN apt-get update && apt-get install -y wget git curl zip 
+# Needed for the emscript build
+RUN apt-get install -y nodejs
+# Needed for the coverage build
+RUN apt-get install -y lcov
+# Needed for some python scripts
+RUN apt-get install -y python-requests
+# Install ccache for faster compilation times
+RUN apt-get install -y ccache
+
+# PPA build dependencies
+RUN apt-get install -y cowbuilder pbuilder debhelper
+#RUN env DIST=trusty sudo cowbuilder --create --distribution trusty --components "main universe" --basepath /var/cache/pbuilder/trusty-amd64-ethereum.cow --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+#RUN env DIST=vivid sudo cowbuilder --create --distribution trusty --components "main universe" --basepath /var/cache/pbuilder/vivid-amd64-ethereum.cow --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
 
 ENV JENKINS_HOME /var/jenkins_home
 ENV JENKINS_SLAVE_AGENT_PORT 50000
@@ -60,12 +73,26 @@ RUN chown -R jenkins "$JENKINS_HOME" /usr/share/jenkins/ref
 # for main web interface:
 EXPOSE 8080
 
+# for https web interface
+EXPOSE 8443
+
 # will be used by attached slave agents:
 EXPOSE 50000
 
 ENV COPY_REFERENCE_FILE_LOG $JENKINS_HOME/copy_reference_file.log
 
 USER jenkins
+COPY ppa.asc ppa.asc
+RUN gpg --import ppa.asc
+
+#make sure the ssh keys are there
+RUN mkdir -p ~/.shh/
+COPY ssh_stuff/id_rsa ~/.ssh/
+COPY ssh_stuff/id_rsa.pub ~/.ssh/
+
+# set git identity
+RUN git config --global user.email "jenkins@localhost"
+RUN git config --global user.name "jenkins"
 
 COPY jenkins.sh /usr/local/bin/jenkins.sh
 ENTRYPOINT ["/bin/tini", "--", "/usr/local/bin/jenkins.sh"]
